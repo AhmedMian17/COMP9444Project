@@ -1,4 +1,4 @@
-HOW TO SETUP PYTHON ENVIRONMENT (PACKAGES):
+<h1>HOW TO SETUP PYTHON ENVIRONMENT (PACKAGES):</h1>
 
 ```
 python3 -m venv ./venv
@@ -18,14 +18,14 @@ pip list
 show what packages were installed to confirm success.
 
 
-HOW TO GET BACK INTO YOUR PYTHON ENVIRONMENT:
+<h1>HOW TO GET BACK INTO YOUR PYTHON ENVIRONMENT:</h1>
 ```
 ./venv/scripts/activate
 ```
 activate your venv on windows, may be different on mac.
 
 
-IF THE REQUIREMENTS HAVE BEEN CHANGED:
+<h1>IF THE REQUIREMENTS HAVE BEEN CHANGED:</h1>
 ```
 ./venv/scripts/activate
 ```
