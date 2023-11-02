@@ -19,6 +19,7 @@ show what packages were installed to confirm success.
 
 
 <h1>HOW TO GET BACK INTO YOUR PYTHON ENVIRONMENT:</h1>
+
 ```
 ./venv/scripts/activate
 ```
@@ -26,6 +27,7 @@ activate your venv on windows, may be different on mac.
 
 
 <h1>IF THE REQUIREMENTS HAVE BEEN CHANGED:</h1>
+
 ```
 ./venv/scripts/activate
 ```
