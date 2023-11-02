@@ -71,6 +71,6 @@ def get_gamestate_info_tensor(game_state):
     Arguments: game_state
     Returns: tensor of shape (3, 4) containing same information as get_gamestate_info, but without the dictionary.
     """
-    return torch.tensor([[game_state.upperPipes[0]['x'], game_state.upperPipes[0]['y'], game_state.lowerPipes[0]['x'], game_state.lowerPipes[0]['y']], 
-            [game_state.upperPipes[1]['x'], game_state.upperPipes[1]['y'], game_state.lowerPipes[1]['x'], game_state.lowerPipes[1]['y']], 
-            [game_state.playerx, game_state.playery, game_state.playerVelY, game_state.playerAccY]])
+    return torch.tensor([game_state.lowerPipes[0]['x'], game_state.lowerPipes[0]['y'], 
+                         game_state.lowerPipes[1]['x'], game_state.lowerPipes[1]['y'], 
+                        game_state.playery, game_state.playerVelY])
