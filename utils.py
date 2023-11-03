@@ -73,4 +73,4 @@ def get_gamestate_info_tensor(game_state):
     """
     return torch.tensor([game_state.lowerPipes[0]['x'], game_state.lowerPipes[0]['y'], 
                          game_state.lowerPipes[1]['x'], game_state.lowerPipes[1]['y'], 
-                        game_state.playery, game_state.playerVelY])
+                        game_state.playery, game_state.playerVelY, game_state.playerFlapped])
