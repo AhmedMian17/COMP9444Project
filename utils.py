@@ -69,7 +69,7 @@ def get_gamestate_info_tensor(game_state):
     """
     gets gamestate but returns it as a tensor. Use when feeding into ML algorithm
     Arguments: game_state
-    Returns: tensor of shape (3, 4) containing same information as get_gamestate_info, but without the dictionary.
+    Returns: tensor of shape (6, 1) containing same information as get_gamestate_info, but without the dictionary.
     """
     return torch.tensor([game_state.lowerPipes[0]['x'], game_state.lowerPipes[0]['y'], 
                          game_state.lowerPipes[1]['x'], game_state.lowerPipes[1]['y'], 
