@@ -65,7 +65,7 @@ def get_gamestate_info(game_state):
         }
     }
 
-def get_gamestate_info_tensor(game_state):
+def get_input_layer(game_state):
     """
     gets gamestate but returns it as a tensor. Use when feeding into ML algorithm
     Arguments: game_state
