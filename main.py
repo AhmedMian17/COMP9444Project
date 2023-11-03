@@ -7,6 +7,7 @@ from utils import get_gamestate_info_tensor
 from Models.NEATModel import NEATModel
 
 neatModel = NEATModel()
+neatModel.run(100)
 
 
 # game_state = game.GameState()
