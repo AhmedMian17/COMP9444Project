@@ -2,12 +2,12 @@ import game.wrapped_flappy_bird as game
 import keyboard
 
 from utils import get_gamestate_info
-from utils import get_gamestate_info_tensor
+from utils import get_input_layer
 
-from Models.NEATModel import NEATModel
+# from Models.NEATModel import NEATModel
 
-neatModel = NEATModel()
-neatModel.run(100)
+# neatModel = NEATModel()
+# neatModel.run(100)
 
 
 # game_state = game.GameState()
@@ -23,3 +23,6 @@ neatModel.run(100)
 #         break
 #     pipes_obj = get_gamestate_info_tensor(game_state)
 
+from Models.DQL.agent import test
+
+test(game.GameState())

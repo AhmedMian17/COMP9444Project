@@ -3,7 +3,6 @@ import neat
 from game import flappyBirdNoGraphics as Game
 from utils import get_gamestate_info_tensor
 
-
 class NEATModel:
     def __init__(self):
         configFile = os.path.join(os.path.dirname(__file__), 'NEATConfig')
