@@ -10,10 +10,11 @@ class StateFrame(object):
         for _ in range(capacity):
             self.memory.append(starting_state)
 
-    def push(self, state_frame):
+    def push(self, game):
         """Save a frame, 
             returns tensor of flattened state frames
         """
+        state_frame = input(game)
         self.memory.popleft()
         self.memory.append(state_frame)
         tensor_list = []
@@ -21,5 +22,8 @@ class StateFrame(object):
             tensor_list.append(torch.tensor(self.memory[i]))
         return torch.stack(tensor_list, dim=0)
     
-    def get(self, game):
-        return self.push(input(game))
+    def get(self):
+        tensor_list = []
+        for i in range(4):
+            tensor_list.append(torch.tensor(self.memory[i]))
+        return torch.stack(tensor_list, dim=0)

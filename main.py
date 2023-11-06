@@ -25,4 +25,4 @@ from utils import get_input_layer
 
 from Models.DQL.agent import test
 
-test(game.GameState())
+test()
