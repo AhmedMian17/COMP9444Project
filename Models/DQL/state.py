@@ -1,8 +1,9 @@
 from collections import deque
 import torch
 from utils import get_input_layer as input
+import numpy as np
 
-class StateFrame(object):
+class StateManager(object):
 
     def __init__(self, capacity):
         self.memory = deque([], maxlen=capacity)
@@ -19,11 +20,12 @@ class StateFrame(object):
         self.memory.append(state_frame)
         tensor_list = []
         for i in range(4):
-            tensor_list.append(torch.tensor(self.memory[i]))
-        return torch.stack(tensor_list, dim=0)
+            tensor_list.append(self.memory[i])
+        return np.array(tensor_list).flatten()
     
     def get(self):
+        # return np array of state frames
         tensor_list = []
         for i in range(4):
-            tensor_list.append(torch.tensor(self.memory[i]))
-        return torch.stack(tensor_list, dim=0)
+            tensor_list.append(self.memory[i])
+        return np.array(tensor_list).flatten()

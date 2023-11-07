@@ -3,6 +3,7 @@ With reference to:
 https://github.com/calvinfeng/machine-learning-notebook/blob/master/reinforcement_learning/deep_q_learning.py
 https://calvinfeng.gitbook.io/machine-learning-notebook/unsupervised-learning/reinforcement-learning/reinforcement_learning#deep-q-learning-example 
 https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html 
+https://www.youtube.com/watch?v=wc-FxNENg9U&t=217s 
 """
 import Models.DQL.nnetwork as dqlnn
 import numpy as np
@@ -14,8 +15,6 @@ import Models.DQL.state as State
 import game.flappyNoGraphics as Game
 import game.wrapped_flappy_bird as GameVisual
 from collections import deque
-
-MAX_MEMORY = 10000
 
 class Agent(object):
     def __init__(self):
@@ -29,17 +28,30 @@ class Agent(object):
         Returns:
             Agent
         """
-        self.gamma = 0.95
-        self.epsilon = 0.99
-        self.epsilon_min = 0.00
-        self.epsilon_decay = 0.996
-        self.learning_rate = 5e-2
-        self.batch_size = 32
+        # constant parameters
+        self.gamma = 0.99
+        self.epsilon_min = 0.001
+        self.epsilon_decay = 0.998
+        self.lr = 0.003
+        self.batch_size = 64
+        self.max_mem_size = 100000
+        # self.input_dims = 7 * 4
 
-        self.memory = deque([], maxlen=MAX_MEMORY)
-        self.policy_net = dqlnn.Network()
-        self.target_net = dqlnn.Network()
-        self.optimizer = optim.AdamW(self.policy_net.parameters(), lr=self.learning_rate, amsgrad=True)
+        #variable parameters
+        self.epsilon = 1
+        self.mem_cntr = 0
+
+        # initializing memory
+        self.state_memory = np.zeros((self.max_mem_size, 4*7), dtype=np.float32)
+        self.new_state_memory = np.zeros((self.max_mem_size, 4*7), dtype=np.float32)
+        self.action_memory = np.zeros(self.max_mem_size, dtype=np.int32)
+        self.reward_memory = np.zeros(self.max_mem_size, dtype=np.float32)
+        self.game_over_memory = np.zeros(self.max_mem_size, dtype=np.bool)
+
+        #initialize networks
+        self.network = dqlnn.Network(self.lr)
+        # self.target_net = dqlnn.Network(self.lr)
+        # self.optimizer = optim.AdamW(self.network.parameters(), lr=self.lr, amsgrad=True)
 
     def nextEpisode(self):
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
@@ -48,10 +60,14 @@ class Agent(object):
         return self.epsilon
 
     def remember(self, state, action, reward, next_state, game_over):
-        if (len(self.memory) >= MAX_MEMORY - 20):
-            for _ in range(2000):
-                self.memory.pop()
-        self.memory.append((state, action, reward, next_state, game_over))
+        index = self.mem_cntr % self.max_mem_size
+        self.state_memory[index] = state
+        self.new_state_memory[index] = next_state
+        self.action_memory[index] = action
+        self.reward_memory[index] = reward
+        self.game_over_memory[index] = game_over
+
+        self.mem_cntr += 1
 
 
     def select_action(self, state):
@@ -67,99 +83,81 @@ class Agent(object):
             return 0
         else:
             # exploitation
-            with torch.no_grad():
-                return_value = self.policy_net(state)
-                if (np.argmax(return_value) >= 2 or np.argmax(return_value) < 0):
-                    raise Exception("unexpected argmax on return value agent.py 39")
-            return np.argmax(return_value)
+                state_tensor = torch.tensor([state]).to(self.network.device, dtype=torch.int32)
+                action = torch.argmax(self.network.forward(state_tensor)).item()
+                
+        return action
+    
+    def updateEpsilon(self):
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
         
-    def replay(self):
-        try:
-            memory_batch = random.sample(self.memory, self.batch_size)
-        except:
-            #do nothing if not enough samples in memory
+    def learn(self):
+        if self.mem_cntr < self.batch_size:
             return
         
-        for state, action, reward, next_state, game_over in memory_batch:
-            target = reward
-            if not game_over:
-                target = reward + self.gamma * torch.max(self.policy_net(next_state))
-            target_f = self.policy_net(state)
-            criterion = torch.nn.SmoothL1Loss()
-            loss = criterion(target_f, torch.tensor(target))
 
-            #optimize model
-            self.optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 100)
-            self.optimizer.step()
+        self.network.optimizer.zero_grad()
+        max_mem = min(self.mem_cntr, self.max_mem_size)
+        batch = np.random.choice(max_mem, self.batch_size, replace=False)
+
+        batch_index = np.arange(self.batch_size, dtype=np.int32)
+
+        state_batch = torch.tensor(self.state_memory[batch]).to(self.network.device)
+        new_state_batch = torch.tensor(self.new_state_memory[batch]).to(self.network.device)
+        reward_batch = torch.tensor(self.reward_memory[batch]).to(self.network.device)
+        action_batch = self.action_memory[batch]
+        game_over_batch = torch.tensor(self.game_over_memory[batch]).to(self.network.device)
+
+        q_current = self.network.forward(state_batch)[batch_index, action_batch]
+        q_next = self.network.forward(new_state_batch)
+        q_next[game_over_batch] = 0.0
+
+        # max returns value as well as index, we only require index
+        q_target = reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
+
+        loss = self.network.loss(q_target, q_current).to(self.network.device)
+        loss.backward()
+        self.network.optimizer.step()
+
 
 import keyboard
 import matplotlib.pyplot as plt
 
 def test():
-    # initialise game and agent
+    game = Game.GameState()
     agent = Agent()
-    state = State.StateFrame(4)
-    episode_number = 0
-    episode_max = 1500
+    scores, eps_history = [], []
+    n_games = 1000
 
-    # initialise params for memory tracking
-    previous_state = torch.tensor(0)
-    curr_state = torch.tensor(0)
-
-    # def remember(self, state, action, reward, next_state, game_over):
-    reward_record = []
-
-    #for each episode
-    while episode_number <= episode_max:
-        if (episode_number > 1498):
-            game = GameVisual.GameState()
-        else:
-            game = Game.GameState()
-        reward = 0
-        game_over = 0
-        episode_reward = 0
-        while (game_over == 0):
-            
-            # select an actiona
-            action = agent.select_action(state.push(game))
+    for i in range(n_games):
+        score = 0
+        game_over = False
+        state_manager = State.StateManager(4)
+        state = state_manager.get()
+        done = False
+        while not done:
+            action = agent.select_action(state)
             _, reward, _ = game.frame_step(action)
-
-            # shuffle state around for memory
-            if (curr_state.shape == state.get().shape):
-                previous_state = curr_state
-            else:
-                previous_state = state.get()
-            curr_state = state.get()
-
-            # amplify punishment for losing
+            state_manager.push(game)
+            next_state = state_manager.get()
             if (reward == -1):
-                record = episode_reward
-                reward = -1 - episode_reward
-                game_over = 1
+                done = True
+                final_score = score
+                reward = -10
+            score += reward
+            agent.remember(state, action, reward, next_state, done)
+            agent.learn()
+            state = next_state
+        agent.updateEpsilon()
+        scores.append(final_score)
+        eps_history.append(agent.epsilon)
 
-            # add reward.
-            episode_reward += reward
-            
-            # add to memory
-            agent.remember(previous_state, action, reward, curr_state, game_over)
+        avg_score = np.mean(scores[-100:])
+        print('episode: ', i,'score: %.2f' % score,
+                ' average score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon)
+    plt.plot(scores)
+    plt.show()
 
-            #admin stuff
-            if keyboard.is_pressed("q"):
-                return
-        agent.replay()    
-        episode_number += 1
-        agent.nextEpisode()
-        reward_record.append(record)
-        if (episode_number % 100 == 0):
-            epsilon = agent.getepsilon()
-            print("episode: ", episode_number, "reward: ", record, "epsilon: ", epsilon)
-    
-    #plot out reward record against episode number
-    plt.plot(reward_record)
-    while keyboard.is_pressed("q") == False:
-        plt.show()
-    return
+
 
     
