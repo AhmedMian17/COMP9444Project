@@ -30,7 +30,7 @@ class Agent(object):
         """
         # constant parameters
         self.gamma = 0.99
-        self.epsilon_min = 0.001
+        self.epsilon_min = 0.01
         self.epsilon_decay = 0.998
         self.lr = 0.003
         self.batch_size = 64
@@ -42,11 +42,7 @@ class Agent(object):
         self.mem_cntr = 0
 
         # initializing memory
-        self.state_memory = np.zeros((self.max_mem_size, 4*7), dtype=np.float32)
-        self.new_state_memory = np.zeros((self.max_mem_size, 4*7), dtype=np.float32)
-        self.action_memory = np.zeros(self.max_mem_size, dtype=np.int32)
-        self.reward_memory = np.zeros(self.max_mem_size, dtype=np.float32)
-        self.game_over_memory = np.zeros(self.max_mem_size, dtype=np.bool)
+        self.memory = deque(maxlen=self.max_mem_size)
 
         #initialize networks
         self.network = dqlnn.Network(self.lr)
@@ -59,13 +55,27 @@ class Agent(object):
     def getepsilon(self):
         return self.epsilon
 
-    def remember(self, state, action, reward, next_state, game_over):
-        index = self.mem_cntr % self.max_mem_size
-        self.state_memory[index] = state
-        self.new_state_memory[index] = next_state
-        self.action_memory[index] = action
-        self.reward_memory[index] = reward
-        self.game_over_memory[index] = game_over
+    def remember(self, state, action, reward, next_state, game_over, score):
+        if (self.mem_cntr >= self.max_mem_size - 20):
+            # pop 2000 from right side of deque
+            memory_copy = self.memory[0:100]
+            self.memory = memory_copy
+
+        memory = [state, action, reward, next_state, game_over, score]
+        if (self.mem_cntr >= 1):
+            if (score >= self.memory[0][5]):
+                self.memory.appendleft(memory)
+            elif(score >= self.memory[40][5]):
+                self.memory.appendleft(memory)
+            elif(reward == -10):
+                self.memory.appendleft(memory)
+            else:
+                self.memory.append(memory)
+        else:
+            if (np.random.randint(0, 50) == -1):
+                self.memory.appendleft(memory)
+            else:   
+                self.memory.append(memory)
 
         self.mem_cntr += 1
 
@@ -78,7 +88,7 @@ class Agent(object):
             # Gives bot best start possible (as it actually has a chance of making it through the first block!)
             # in flappy bird a flap changes the gamestate a lot more than a no-flap.
             determiner = np.random.randint(0, 30);
-            if (determiner <= 1):
+            if (determiner <= 2):
                 return 1
             return 0
         else:
@@ -102,11 +112,13 @@ class Agent(object):
 
         batch_index = np.arange(self.batch_size, dtype=np.int32)
 
-        state_batch = torch.tensor(self.state_memory[batch]).to(self.network.device)
-        new_state_batch = torch.tensor(self.new_state_memory[batch]).to(self.network.device)
-        reward_batch = torch.tensor(self.reward_memory[batch]).to(self.network.device)
-        action_batch = self.action_memory[batch]
-        game_over_batch = torch.tensor(self.game_over_memory[batch]).to(self.network.device)
+        # memory = [state, action, reward, next_state, game_over, score]
+
+        state_batch = torch.tensor([self.memory[i][0] for i in batch]).to(self.network.device, dtype=torch.float32)
+        action_batch = torch.tensor([self.memory[i][1] for i in batch])
+        reward_batch = torch.tensor([self.memory[i][2] for i in batch]).to(self.network.device, dtype=torch.float32)
+        new_state_batch = torch.tensor([self.memory[i][3] for i in batch]).to(self.network.device, dtype=torch.float32)
+        game_over_batch = torch.tensor([self.memory[i][4] for i in batch]).to(self.network.device, dtype=torch.bool)
 
         q_current = self.network.forward(state_batch)[batch_index, action_batch]
         q_next = self.network.forward(new_state_batch)
@@ -124,12 +136,15 @@ import keyboard
 import matplotlib.pyplot as plt
 
 def test():
-    game = Game.GameState()
+
     agent = Agent()
     scores, eps_history = [], []
-    n_games = 1000
+    n_games = 2000
 
     for i in range(n_games):
+        game = Game.GameState()
+        if (i % 100 == 0):
+            game = GameVisual.GameState()
         score = 0
         game_over = False
         state_manager = State.StateManager(4)
@@ -145,7 +160,7 @@ def test():
                 final_score = score
                 reward = -10
             score += reward
-            agent.remember(state, action, reward, next_state, done)
+            agent.remember(state, action, reward, next_state, done, score)
             agent.learn()
             state = next_state
         agent.updateEpsilon()

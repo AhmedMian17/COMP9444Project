@@ -57,6 +57,21 @@ class GameState:
         self.playerFlapAcc =  -9   # players speed on flapping
         self.playerFlapped = False # True when player flaps
 
+    def get_next_pipe_index(self):
+        playerMidPos = self.playerx + PLAYER_WIDTH / 2
+        distance = [0, 0]
+        idx = 0
+        for pipe in self.upperPipes:
+            if (idx == 2):
+                break
+            pipeMidPos = pipe['x'] + PIPE_WIDTH / 2
+            if pipeMidPos >= playerMidPos:
+                distance[idx] = pipeMidPos - playerMidPos
+            else:
+                distance[idx] = 999
+            idx += 1
+        return distance.index(min(distance))
+
     def frame_step(self, flap):
         pygame.event.pump()
 
@@ -68,6 +83,16 @@ class GameState:
                 self.playerVelY = self.playerFlapAcc
                 self.playerFlapped = True
                 #SOUNDS['wing'].play()
+
+        next_pipe_idx = self.get_next_pipe_index()
+        playerMidPos = self.playery
+        pipeUpperMidPos = self.upperPipes[next_pipe_idx]['y']
+        pipeLowerMidPos = self.lowerPipes[next_pipe_idx]['y']
+        # if playerMidPos < pipeUpperMidPos + 1 and playerMidPos > pipeLowerMidPos - 1:
+        #     reward = 0.2
+        # if playerMidPos < pipeUpperMidPos and playerMidPos > pipeLowerMidPos:
+        #     reward = 0.4
+
 
         # check for score
         playerMidPos = self.playerx + PLAYER_WIDTH / 2
