@@ -1,14 +1,13 @@
 import game.wrapped_flappy_bird as game
 import keyboard
 
-from utils import get_gamestate_info
-from utils import get_gamestate_info_tensor
-
 from Models.NEATModel import NEATModel
 
 neatModel = NEATModel()
-neatModel.run(100)
-
+# neatModel.run(300, "neat-checkpoint-27")
+neatModel.loadBest()
+neatModel.playGame()
+# neatModel.testBest(1000)
 
 # game_state = game.GameState()
 # while True:
