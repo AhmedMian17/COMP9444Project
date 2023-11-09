@@ -90,8 +90,8 @@ class GameState:
         pipeLowerMidPos = self.lowerPipes[next_pipe_idx]['y']
         # if playerMidPos < pipeUpperMidPos + 1 and playerMidPos > pipeLowerMidPos - 1:
         #     reward = 0.2
-        # if playerMidPos < pipeUpperMidPos and playerMidPos > pipeLowerMidPos:
-        #     reward = 0.4
+        if playerMidPos < pipeUpperMidPos and playerMidPos > pipeLowerMidPos:
+            reward = 0.2
 
 
         # check for score

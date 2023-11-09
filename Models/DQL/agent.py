@@ -30,20 +30,22 @@ class Agent(object):
             Agent
         """
         # constant parameters
-        self.gamma = 0.99
-        self.epsilon_min = 0.01
+        self.gamma = 0.1
+        self.epsilon_min = 0.001
         self.epsilon_decay = 0.998
-        self.lr = 0.003
+        self.lr = 0.004
         self.batch_size = 64
-        self.max_mem_size = 100000
+        self.max_mem_size = 10000
         # self.input_dims = 7 * 4
 
         #variable parameters
-        self.epsilon = 0.3
+        self.epsilon = 0.7
         self.mem_cntr = 0
+        self.mem_cntr_successful = 0
 
         # initializing memory
         self.memory = deque(maxlen=self.max_mem_size)
+        self.memory_successful = deque(maxlen=1000)
         self.episodic_memory = []
 
         #initialize networks
@@ -54,10 +56,14 @@ class Agent(object):
     def save_experience(self):
         with open('Models/DQL/experience.pickle', 'wb') as handle:
             pickle.dump(self.memory, handle)
+        with open('Models/DQL/experience_successful.pickle', 'wb') as handle:
+            pickle.dump(self.memory_successful, handle)
 
     def load_experience(self):
         with open('Models/DQL/experience.pickle', 'rb') as handle:
             self.memory = pickle.load(handle)
+        with open('Models/DQL/experience_successful.pickle', 'rb') as handle:
+            self.memory_successful = pickle.load(handle)
 
     def getMemory(self):
         return self.memory
@@ -68,30 +74,27 @@ class Agent(object):
     def getepsilon(self):
         return self.epsilon
 
-    def remember(self, state, action, reward, next_state, game_over, score):
-        if (self.mem_cntr >= self.max_mem_size - 20):
-            # pop 2000 from right side of deque
-            memory_copy = self.memory[0:100]
-            self.memory = memory_copy
+    def remember(self, state, action, reward, next_state, game_over, score, next_reward):
+        if (self.mem_cntr >= self.max_mem_size - 2):
+            for i in range(self.max_mem_size - 7000):
+                self.memory.popleft()
+            self.mem_cntr = len(self.memory) - 1
 
-        memory = [state, action, reward, next_state, game_over, score]
-        if (self.mem_cntr >= 1):
-            if (score >= self.memory[0][5]):
-                self.memory.appendleft(memory)
-            elif(score >= self.memory[40][5]):
-                self.memory.appendleft(memory)
-            elif(reward == -10):
-                self.memory.appendleft(memory)
-            else:
-                self.memory.append(memory)
-        else:
-            if (np.random.randint(0, 50) == -1):
-                self.memory.appendleft(memory)
-            else:   
-                self.memory.append(memory)
+        memory = [state, action, reward, next_state, game_over, score, next_reward]
+        self.memory.append(memory)
 
         self.mem_cntr += 1
 
+    def remember_successful(self, state, action, reward, next_state, game_over, score, next_reward):
+        if (self.mem_cntr_successful >= 1000 - 20):
+            for i in range(1000 - 500):
+                self.memory_successful.popleft()
+            self.mem_cntr_successful = len(self.memory_successful) - 1
+
+        memory = [state, action, reward, next_state, game_over, score, next_reward]
+        self.memory_successful.append(memory)
+
+        self.mem_cntr_successful += 1
 
     def select_action(self, state):
         if np.random.rand() <= self.epsilon:
@@ -130,6 +133,45 @@ class Agent(object):
 
         batch_index = np.arange(self.batch_size, dtype=np.int32)
 
+        # memory = [state, action, reward, next_state, game_over, score, next_reward]
+
+
+
+        state_batch = torch.tensor([self.memory[i][0] for i in batch]).to(self.network.device, dtype=torch.float32)
+        action_batch = torch.tensor([self.memory[i][1] for i in batch])
+        reward_batch = torch.tensor([self.memory[i][2] for i in batch]).to(self.network.device, dtype=torch.float32)
+        new_state_batch = torch.tensor([self.memory[i][3] for i in batch]).to(self.network.device, dtype=torch.float32)
+        game_over_batch = torch.tensor([self.memory[i][4] for i in batch]).to(self.network.device, dtype=torch.bool)
+        next_reward_batch = torch.tensor([self.memory[i][6] for i in batch]).to(self.network.device, dtype=torch.float32)
+
+        q_current = self.network.forward(state_batch)[batch_index, action_batch]
+        # q_next = self.network.forward(new_state_batch)
+        # q_next[game_over_batch] = 0.0
+
+        # max returns value as well as index, we only require index
+        # q_current = reward_batch
+        # q_target = next_reward_batch
+
+        q_current = self.network.forward(state_batch)[batch_index, action_batch]
+        q_next = self.network.forward(new_state_batch)
+        q_target = reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
+
+
+        loss = self.network.loss(q_target, q_current).to(self.network.device)
+        loss.backward()
+        self.network.optimizer.step()
+
+    def learn_successful(self):
+        if self.mem_cntr_successful < self.batch_size:
+            return
+        
+        # print("learning successful")
+        self.network.optimizer.zero_grad()
+        max_mem = min(self.mem_cntr_successful, self.max_mem_size)
+        batch = np.random.choice(max_mem, self.batch_size, replace=False)
+
+        batch_index = np.arange(self.batch_size, dtype=np.int32)
+
         # memory = [state, action, reward, next_state, game_over, score]
 
 
@@ -139,22 +181,36 @@ class Agent(object):
         reward_batch = torch.tensor([self.memory[i][2] for i in batch]).to(self.network.device, dtype=torch.float32)
         new_state_batch = torch.tensor([self.memory[i][3] for i in batch]).to(self.network.device, dtype=torch.float32)
         game_over_batch = torch.tensor([self.memory[i][4] for i in batch]).to(self.network.device, dtype=torch.bool)
+        next_reward_batch = torch.tensor([self.memory[i][6] for i in batch]).to(self.network.device, dtype=torch.float32)
 
         q_current = self.network.forward(state_batch)[batch_index, action_batch]
-        q_next = self.network.forward(new_state_batch)
-        q_next[game_over_batch] = 0.0
+        # q_next = self.network.forward(new_state_batch)
+        # q_next[game_over_batch] = 0.0
 
         # max returns value as well as index, we only require index
-        q_target = reward_batch
+        # q_current = reward_batch
+        # q_target = next_reward_batch
+        q_current = self.network.forward(state_batch)[batch_index, action_batch]
+        q_next = self.network.forward(new_state_batch)
+        q_target = reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
+        # q_target = next_reward_batch - reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
+
 
         loss = self.network.loss(q_target, q_current).to(self.network.device)
         loss.backward()
         self.network.optimizer.step()
 
     def update_episodic_memory(self, state, action, reward, next_state, done, score, current_step):
-        self.episodic_memory.append([state, action, reward, next_state, done, score])
+        self.episodic_memory.append([state, action, reward, next_state, done, score, 0])
         for i in range(current_step):
-            self.episodic_memory[i][2] = self.episodic_memory[i][2] + (0.9**(current_step - i)) * reward
+            if (abs(current_step - i) < 20):
+                gamma = self.gamma**(i - current_step)
+            else:
+                gamma = self.gamma**(current_step - i)
+            self.episodic_memory[i][2] = self.episodic_memory[i][2] + (gamma) * reward
+            # update next_reward
+        for i in range(current_step - 1):
+            self.episodic_memory[i][6] = self.episodic_memory[i + 1][6]
 
 
 import keyboard
@@ -174,7 +230,7 @@ def test():
     agent.save_experience()
     # agent.load_experience()
     for i in range(100):
-        agent.learn()
+        agent.learn_successful()
 
     for i in range(n_games):
         game = Game.GameState()
@@ -201,12 +257,18 @@ def test():
             # agent.remember(state, action, reward, next_state, done, score)
             agent.update_episodic_memory(state, action, reward, next_state, done, score, current_step)
             agent.learn()
+            agent.learn_successful()
             state = next_state
+            current_step += 1
         agent.updateEpsilon()
         scores.append(final_score)
         eps_history.append(agent.epsilon)
         for frame in agent.episodic_memory:
-            agent.remember(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5])
+            agent.remember(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6])
+        if not (score <= -0.4):
+            for frame in agent.episodic_memory:
+                agent.remember_successful(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6])
+        
         # agent.remember(state, action, reward, next_state, done, score)
 
         avg_score = np.mean(scores[-100:])
