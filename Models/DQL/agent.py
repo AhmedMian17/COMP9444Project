@@ -15,6 +15,7 @@ import Models.DQL.state as State
 import game.flappyNoGraphics as Game
 import game.wrapped_flappy_bird as GameVisual
 from collections import deque
+import pickle
 
 class Agent(object):
     def __init__(self):
@@ -43,11 +44,23 @@ class Agent(object):
 
         # initializing memory
         self.memory = deque(maxlen=self.max_mem_size)
+        self.episodic_memory = []
 
         #initialize networks
         self.network = dqlnn.Network(self.lr)
         # self.target_net = dqlnn.Network(self.lr)
         # self.optimizer = optim.AdamW(self.network.parameters(), lr=self.lr, amsgrad=True)
+
+    def save_experience(self):
+        with open('Models/DQL/experience.pickle', 'wb') as handle:
+            pickle.dump(self.memory, handle)
+
+    def load_experience(self):
+        with open('Models/DQL/experience.pickle', 'rb') as handle:
+            self.memory = pickle.load(handle)
+
+    def getMemory(self):
+        return self.memory
 
     def nextEpisode(self):
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
@@ -103,7 +116,7 @@ class Agent(object):
         
     def updateEpsilonScore(self, score):
         modifier = -0.01*score + 1.08
-        episolon_new = min(self.epsilon * modifier, 0.7)
+        episolon_new = min(self.epsilon * modifier, 0.7 )
         self.epsilon = max(self.epsilon_min, episolon_new)
 
     def learn(self):
@@ -132,39 +145,49 @@ class Agent(object):
         q_next[game_over_batch] = 0.0
 
         # max returns value as well as index, we only require index
-        q_target = reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
+        q_target = reward_batch
 
         loss = self.network.loss(q_target, q_current).to(self.network.device)
         loss.backward()
         self.network.optimizer.step()
+
+    def update_episodic_memory(self, state, action, reward, next_state, done, score, current_step):
+        self.episodic_memory.append([state, action, reward, next_state, done, score])
+        for i in range(current_step):
+            self.episodic_memory[i][2] = self.episodic_memory[i][2] + (0.9**(current_step - i)) * reward
 
 
 import keyboard
 import matplotlib.pyplot as plt
 import Models.DQL.human_training as Trainer
 
+
 def test():
 
     agent = Agent()
     scores, eps_history = [], []
-    n_games = 2000
+    n_games = 10000
 
     trainer = Trainer.Trainer(agent)
 
     trainer.play(10)
-
+    agent.save_experience()
+    # agent.load_experience()
     for i in range(100):
         agent.learn()
 
     for i in range(n_games):
         game = Game.GameState()
-        if (i % 100 == 0):
+        if (i % 50 == 0):
             game = GameVisual.GameState()
         score = 0
         game_over = False
         state_manager = State.StateManager(4)
         state = state_manager.get()
         done = False
+        # state, action, reward, next_state, done, score
+        agent.episodic_memory = []
+        current_step = 0
         while not done:
             action = agent.select_action(state)
             _, reward, _ = game.frame_step(action)
@@ -175,16 +198,20 @@ def test():
                 final_score = score
                 reward = -10
             score += reward
-            agent.remember(state, action, reward, next_state, done, score)
+            # agent.remember(state, action, reward, next_state, done, score)
+            agent.update_episodic_memory(state, action, reward, next_state, done, score, current_step)
             agent.learn()
             state = next_state
         agent.updateEpsilon()
         scores.append(final_score)
         eps_history.append(agent.epsilon)
+        for frame in agent.episodic_memory:
+            agent.remember(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5])
+        # agent.remember(state, action, reward, next_state, done, score)
 
         avg_score = np.mean(scores[-100:])
-        if (avg_score < 20):
-            agent.updateEpsilonScore(avg_score)
+        # if (avg_score < 20):
+        #     agent.updateEpsilonScore(avg_score)
         print('episode: ', i,'score: %.2f' % score,
                 ' average score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon)
     plt.plot(scores)

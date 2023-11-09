@@ -3,6 +3,7 @@ import Models.DQL.state as State
 import game.wrapped_flappy_bird as GameVisual
 from collections import deque
 import keyboard
+import pickle
 
 class Trainer(object):
     def __init__(self, agent):
@@ -40,5 +41,7 @@ class Trainer(object):
                     done = True
                     final_score = self.game.score
                     reward = -10
+
+
 
 
