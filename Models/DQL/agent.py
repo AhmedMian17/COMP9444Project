@@ -38,7 +38,7 @@ class Agent(object):
         # self.input_dims = 7 * 4
 
         #variable parameters
-        self.epsilon = 1
+        self.epsilon = 0.3
         self.mem_cntr = 0
 
         # initializing memory
@@ -101,6 +101,11 @@ class Agent(object):
     def updateEpsilon(self):
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
         
+    def updateEpsilonScore(self, score):
+        modifier = -0.01*score + 1.08
+        episolon_new = min(self.epsilon * modifier, 0.7)
+        self.epsilon = max(self.epsilon_min, episolon_new)
+
     def learn(self):
         if self.mem_cntr < self.batch_size:
             return
@@ -113,6 +118,8 @@ class Agent(object):
         batch_index = np.arange(self.batch_size, dtype=np.int32)
 
         # memory = [state, action, reward, next_state, game_over, score]
+
+
 
         state_batch = torch.tensor([self.memory[i][0] for i in batch]).to(self.network.device, dtype=torch.float32)
         action_batch = torch.tensor([self.memory[i][1] for i in batch])
@@ -134,12 +141,20 @@ class Agent(object):
 
 import keyboard
 import matplotlib.pyplot as plt
+import Models.DQL.human_training as Trainer
 
 def test():
 
     agent = Agent()
     scores, eps_history = [], []
     n_games = 2000
+
+    trainer = Trainer.Trainer(agent)
+
+    trainer.play(10)
+
+    for i in range(100):
+        agent.learn()
 
     for i in range(n_games):
         game = Game.GameState()
@@ -168,6 +183,8 @@ def test():
         eps_history.append(agent.epsilon)
 
         avg_score = np.mean(scores[-100:])
+        if (avg_score < 20):
+            agent.updateEpsilonScore(avg_score)
         print('episode: ', i,'score: %.2f' % score,
                 ' average score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon)
     plt.plot(scores)
