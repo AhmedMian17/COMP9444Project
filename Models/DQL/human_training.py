@@ -29,10 +29,10 @@ class Trainer(object):
                 else:
                     action = 0
                     _, reward, _ = self.game.frame_step(False)
-                if (reward == -1):
+                if (reward == -5):
                     done = True
                     final_score = score
-                    reward = -10
+                    reward = -5
                 score += reward
 
                 self.state_manager.push(self.game)

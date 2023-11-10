@@ -76,7 +76,7 @@ class GameState:
     def frame_step(self, flap):
         pygame.event.pump()
 
-        reward = 0.1
+        reward = 0.4
         terminal = False
 
         if flap:
@@ -86,13 +86,17 @@ class GameState:
                 #SOUNDS['wing'].play()
 
         next_pipe_idx = self.get_next_pipe_index()
-        playerMidPos = self.playery + PLAYER_HEIGHT
+        playerMidPos = self.playery + PLAYER_HEIGHT/2
         pipeUpperMidPos = self.upperPipes[next_pipe_idx]['y']
         pipeLowerMidPos = self.lowerPipes[next_pipe_idx]['y']
         # if playerMidPos < pipeUpperMidPos + 1 and playerMidPos > pipeLowerMidPos - 1:
         #     reward = 0.2
-        if playerMidPos < pipeUpperMidPos and playerMidPos > pipeLowerMidPos:
-            reward = 0.2
+        # if playerMidPos > pipeLowerMidPos - 100 and playerMidPos < pipeLowerMidPos:
+        #     # print("within")
+        #     reward = 0.2
+        if playerMidPos <= 0.1*SCREENHEIGHT:
+            # print("too high")
+            reward = -0.4
 
 
         # check for score
@@ -102,7 +106,7 @@ class GameState:
             if pipeMidPos <= playerMidPos < pipeMidPos + 4:
                 self.score += 1
                 #SOUNDS['point'].play()
-                reward = 5
+                reward = 10
 
         # playerIndex basex change
         if (self.loopIter + 1) % 3 == 0:
@@ -144,7 +148,7 @@ class GameState:
             #SOUNDS['die'].play()
             terminal = True
             self.__init__()
-            reward = -1
+            reward = -5
 
         # # draw sprites
         # SCREEN.blit(IMAGES['background'], (0,0))

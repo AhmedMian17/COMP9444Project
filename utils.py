@@ -72,7 +72,7 @@ def get_input_layer(game_state):
     Arguments: game_state
     Returns: tensor of shape (7, 1) containing same information as get_gamestate_info, but without the dictionary.
     """
-    print("pipe height: ", game_state.lowerPipes[0]['y'])
+    # print("pipe height: ", game_state.lowerPipes[0]['y'])
     return np.array([game_state.lowerPipes[0]['x'], game_state.lowerPipes[0]['y'], 
                          game_state.lowerPipes[1]['x'], game_state.lowerPipes[1]['y'], 
                         game_state.playery, game_state.playerVelY, game_state.playerFlapped])

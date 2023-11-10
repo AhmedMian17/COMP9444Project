@@ -8,10 +8,11 @@ class Network(nn.Module):
 
         self.n_actions = 2
         self.hid_1 = 128
-        self.hid_2 = 128
-        self.hid_3 = 128
-        self.hid_4 = 128
-        self.hid_5 = 128
+        self.hid_2 = 256
+        self.hid_3 = 256
+        self.hid_4 = 256
+        self.hid_5 = 64
+        self.hid_6 = 32
         self.inputs = 7 * 4
         self.model = nn.Sequential(
             nn.Linear(self.inputs, self.hid_1),
@@ -24,7 +25,9 @@ class Network(nn.Module):
             nn.ReLU(),
             nn.Linear(self.hid_4, self.hid_5),
             nn.ReLU(),
-            nn.Linear(self.hid_5, self.n_actions),
+            nn.Linear(self.hid_5, self.hid_6),
+            nn.ReLU(),
+            nn.Linear(self.hid_6, self.n_actions),
         )
 
         self.optimizer = optim.Adam(self.parameters(), lr=lr)

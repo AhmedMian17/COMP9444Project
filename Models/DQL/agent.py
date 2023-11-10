@@ -30,10 +30,10 @@ class Agent(object):
             Agent
         """
         # constant parameters
-        self.gamma = 0.1
-        self.epsilon_min = 0.001
-        self.epsilon_decay = 0.998
-        self.lr = 0.004
+        self.gamma = 0.8
+        self.epsilon_min = 0.005
+        self.epsilon_decay = 0.996
+        self.lr = 0.03
         self.batch_size = 64
         self.max_mem_size = 10000
         # self.input_dims = 7 * 4
@@ -154,7 +154,9 @@ class Agent(object):
 
         q_current = self.network.forward(state_batch)[batch_index, action_batch]
         q_next = self.network.forward(new_state_batch)
-        q_target = reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
+
+        # ask tutor how to make this part not short sighted.
+        q_target = (next_reward_batch - reward_batch) + self.gamma * torch.max(q_next, dim=1)[0]
 
 
         loss = self.network.loss(q_target, q_current).to(self.network.device)
@@ -192,8 +194,8 @@ class Agent(object):
         # q_target = next_reward_batch
         q_current = self.network.forward(state_batch)[batch_index, action_batch]
         q_next = self.network.forward(new_state_batch)
-        q_target = reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
-        # q_target = next_reward_batch - reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
+        q_next[game_over_batch] = 0.0
+        q_target = next_reward_batch - reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
 
 
         loss = self.network.loss(q_target, q_current).to(self.network.device)
@@ -203,14 +205,15 @@ class Agent(object):
     def update_episodic_memory(self, state, action, reward, next_state, done, score, current_step):
         self.episodic_memory.append([state, action, reward, next_state, done, score, 0])
         for i in range(current_step):
-            if (abs(current_step - i) < 20):
-                gamma = self.gamma**(i - current_step)
+            if (abs(current_step - i) < 10):
+                gamma = 1.0**(current_step - i)
             else:
-                gamma = self.gamma**(current_step - i)
+                gamma = self.gamma**((current_step - i)-10)
             self.episodic_memory[i][2] = self.episodic_memory[i][2] + (gamma) * reward
             # update next_reward
         for i in range(current_step - 1):
-            self.episodic_memory[i][6] = self.episodic_memory[i + 1][6]
+            self.episodic_memory[i][6] = self.episodic_memory[i + 1][2]
+        self.episodic_memory[current_step][6] = self.episodic_memory[current_step][2]
 
 
 import keyboard
@@ -226,9 +229,9 @@ def test():
 
     trainer = Trainer.Trainer(agent)
 
-    trainer.play(10)
-    agent.save_experience()
-    # agent.load_experience()
+    # trainer.play(10)
+    # agent.save_experience()
+    agent.load_experience()
     for i in range(100):
         agent.learn_successful()
 
@@ -249,15 +252,16 @@ def test():
             _, reward, _ = game.frame_step(action)
             state_manager.push(game)
             next_state = state_manager.get()
-            if (reward == -1):
+            if (reward == -5):
                 done = True
                 final_score = score
-                reward = -10
+                reward = -5
             score += reward
             # agent.remember(state, action, reward, next_state, done, score)
             agent.update_episodic_memory(state, action, reward, next_state, done, score, current_step)
+            # agent.learn_successful()
             agent.learn()
-            agent.learn_successful()
+
             state = next_state
             current_step += 1
         agent.updateEpsilon()
@@ -265,10 +269,6 @@ def test():
         eps_history.append(agent.epsilon)
         for frame in agent.episodic_memory:
             agent.remember(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6])
-        if not (score <= -0.4):
-            for frame in agent.episodic_memory:
-                agent.remember_successful(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6])
-        
         # agent.remember(state, action, reward, next_state, done, score)
 
         avg_score = np.mean(scores[-100:])
@@ -276,6 +276,11 @@ def test():
         #     agent.updateEpsilonScore(avg_score)
         print('episode: ', i,'score: %.2f' % score,
                 ' average score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon)
+        if (score > 10):
+            print("successful")
+        if (keyboard.is_pressed("`")):
+            break
+
     plt.plot(scores)
     plt.show()
 
