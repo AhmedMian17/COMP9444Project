@@ -94,6 +94,9 @@ class GameState:
         # if playerMidPos > pipeLowerMidPos - 100 and playerMidPos < pipeLowerMidPos:
         #     # print("within")
         #     reward = 0.2
+        if playerMidPos <= 0.2*SCREENHEIGHT:
+            # print("too high")
+            reward = -0.2
         if playerMidPos <= 0.1*SCREENHEIGHT:
             # print("too high")
             reward = -0.4

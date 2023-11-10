@@ -1,6 +1,6 @@
 from collections import deque
 import torch
-from utils import get_input_layer as input
+from utils import get_input_layer_2 as input
 import numpy as np
 
 class StateManager(object):

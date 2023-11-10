@@ -10,7 +10,7 @@ import numpy as np
 import random
 import torch
 import torch.optim as optim
-from utils import get_input_layer as input
+from utils import get_input_layer_2 as input
 import Models.DQL.state as State
 import game.flappyNoGraphics as Game
 import game.wrapped_flappy_bird as GameVisual
@@ -30,16 +30,16 @@ class Agent(object):
             Agent
         """
         # constant parameters
-        self.gamma = 0.8
-        self.epsilon_min = 0.005
+        self.gamma = 0.95
+        self.epsilon_min = 0.01
         self.epsilon_decay = 0.996
-        self.lr = 0.03
+        self.lr = 0.00005
         self.batch_size = 64
         self.max_mem_size = 10000
         # self.input_dims = 7 * 4
 
         #variable parameters
-        self.epsilon = 0.7
+        self.epsilon = 0.01
         self.mem_cntr = 0
         self.mem_cntr_successful = 0
 
@@ -76,7 +76,7 @@ class Agent(object):
 
     def remember(self, state, action, reward, next_state, game_over, score, next_reward):
         if (self.mem_cntr >= self.max_mem_size - 2):
-            for i in range(self.max_mem_size - 7000):
+            for i in range(self.max_mem_size - 3000):
                 self.memory.popleft()
             self.mem_cntr = len(self.memory) - 1
 
@@ -156,11 +156,12 @@ class Agent(object):
         q_next = self.network.forward(new_state_batch)
 
         # ask tutor how to make this part not short sighted.
-        q_target = (next_reward_batch - reward_batch) + self.gamma * torch.max(q_next, dim=1)[0]
+        q_target = reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
 
 
         loss = self.network.loss(q_target, q_current).to(self.network.device)
         loss.backward()
+        torch.nn.utils.clip_grad_value_(self.network.parameters(), 100)
         self.network.optimizer.step()
 
     def learn_successful(self):
@@ -195,7 +196,7 @@ class Agent(object):
         q_current = self.network.forward(state_batch)[batch_index, action_batch]
         q_next = self.network.forward(new_state_batch)
         q_next[game_over_batch] = 0.0
-        q_target = next_reward_batch - reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
+        q_target = reward_batch + self.gamma * torch.max(q_next, dim=1)[0]
 
 
         loss = self.network.loss(q_target, q_current).to(self.network.device)
@@ -204,16 +205,16 @@ class Agent(object):
 
     def update_episodic_memory(self, state, action, reward, next_state, done, score, current_step):
         self.episodic_memory.append([state, action, reward, next_state, done, score, 0])
-        for i in range(current_step):
-            if (abs(current_step - i) < 10):
-                gamma = 1.0**(current_step - i)
-            else:
-                gamma = self.gamma**((current_step - i)-10)
-            self.episodic_memory[i][2] = self.episodic_memory[i][2] + (gamma) * reward
-            # update next_reward
-        for i in range(current_step - 1):
-            self.episodic_memory[i][6] = self.episodic_memory[i + 1][2]
-        self.episodic_memory[current_step][6] = self.episodic_memory[current_step][2]
+        # for i in range(current_step):
+        #     if (abs(current_step - i) < 10):
+        #         gamma = 1.0**(current_step - i)
+        #     else:
+        #         gamma = self.gamma**((current_step - i)-10)
+        #     self.episodic_memory[i][2] = self.episodic_memory[i][2] + (gamma) * reward
+        #     # update next_reward
+        # for i in range(current_step - 1):
+        #     self.episodic_memory[i][6] = self.episodic_memory[i + 1][2]
+        # self.episodic_memory[current_step][6] = self.episodic_memory[current_step][2]
 
 
 import keyboard
@@ -224,20 +225,20 @@ import Models.DQL.human_training as Trainer
 def test():
 
     agent = Agent()
-    scores, eps_history = [], []
-    n_games = 10000
-
+    scores, median_scores, eps_history = [], [], []
+    n_games = 100000
+    success_threshold = 15
     trainer = Trainer.Trainer(agent)
 
     # trainer.play(10)
     # agent.save_experience()
     agent.load_experience()
     for i in range(100):
-        agent.learn_successful()
+        agent.learn()
 
     for i in range(n_games):
         game = Game.GameState()
-        if (i % 50 == 0):
+        if (keyboard.is_pressed("p")):
             game = GameVisual.GameState()
         score = 0
         game_over = False
@@ -259,29 +260,38 @@ def test():
             score += reward
             # agent.remember(state, action, reward, next_state, done, score)
             agent.update_episodic_memory(state, action, reward, next_state, done, score, current_step)
-            # agent.learn_successful()
-            agent.learn()
+            
 
             state = next_state
             current_step += 1
+        agent.learn()
+        agent.learn_successful()
+
         agent.updateEpsilon()
-        scores.append(final_score)
+
         eps_history.append(agent.epsilon)
         for frame in agent.episodic_memory:
             agent.remember(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6])
+        if (score > success_threshold):
+            agent.remember_successful(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5], frame[6])
         # agent.remember(state, action, reward, next_state, done, score)
 
-        avg_score = np.mean(scores[-100:])
-        # if (avg_score < 20):
-        #     agent.updateEpsilonScore(avg_score)
+        median_score = np.mean(scores[-100:])
+        success_threshold = max(success_threshold, median_score + 10)
+        # if (i % 500 == 0):
+        #     success_threshold = 15
+        scores.append(score)
+        median_scores.append(median_score)
+        # if (median_score < 20):
+        #     agent.updateEpsilonScore(median_score)
         print('episode: ', i,'score: %.2f' % score,
-                ' average score %.2f' % avg_score, 'epsilon %.2f' % agent.epsilon)
-        if (score > 10):
-            print("successful")
+                ' median score %.2f' % median_score, 'epsilon %.2f' % agent.epsilon)
+        # if (score > 10):
+        #     print("successful")
         if (keyboard.is_pressed("`")):
             break
 
-    plt.plot(scores)
+    plt.plot(median_scores)
     plt.show()
 
 
