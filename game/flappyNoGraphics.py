@@ -72,6 +72,7 @@ class GameState:
             idx += 1
         return distance.index(min(distance))
 
+
     def frame_step(self, flap):
         pygame.event.pump()
 
@@ -85,14 +86,11 @@ class GameState:
                 #SOUNDS['wing'].play()
 
         next_pipe_idx = self.get_next_pipe_index()
-        playerMidPos = self.playery
+        playerMidPos = self.playery + PLAYER_HEIGHT/2
         pipeUpperMidPos = self.upperPipes[next_pipe_idx]['y']
         pipeLowerMidPos = self.lowerPipes[next_pipe_idx]['y']
         # if playerMidPos < pipeUpperMidPos + 1 and playerMidPos > pipeLowerMidPos - 1:
         #     reward = 0.2
-        # print(playerMidPos, " ", 0.9*SCREENHEIGHT)
-        # print(playerMidPos, " ", pipeLowerMidPos - 100, " ", pipeLowerMidPos)
-        # print(playerMidPos)
         # if playerMidPos > pipeLowerMidPos - 100 and playerMidPos < pipeLowerMidPos:
         #     # print("within")
         #     reward = 0.2
@@ -155,24 +153,24 @@ class GameState:
             self.__init__()
             reward = -5
 
-        # draw sprites
-        SCREEN.blit(IMAGES['background'], (0,0))
+        # # draw sprites
+        # SCREEN.blit(IMAGES['background'], (0,0))
 
-        for uPipe, lPipe in zip(self.upperPipes, self.lowerPipes):
-            SCREEN.blit(IMAGES['pipe'][0], (uPipe['x'], uPipe['y']))
-            SCREEN.blit(IMAGES['pipe'][1], (lPipe['x'], lPipe['y']))
+        # for uPipe, lPipe in zip(self.upperPipes, self.lowerPipes):
+        #     SCREEN.blit(IMAGES['pipe'][0], (uPipe['x'], uPipe['y']))
+        #     SCREEN.blit(IMAGES['pipe'][1], (lPipe['x'], lPipe['y']))
 
-        SCREEN.blit(IMAGES['base'], (self.basex, BASEY))
-        # print score so player overlaps the score
-        # showScore(self.score)
-        SCREEN.blit(IMAGES['player'][self.playerIndex],
-                    (self.playerx, self.playery))
+        # SCREEN.blit(IMAGES['base'], (self.basex, BASEY))
+        # # print score so player overlaps the score
+        # # showScore(self.score)
+        # SCREEN.blit(IMAGES['player'][self.playerIndex],
+        #             (self.playerx, self.playery))
 
-        image_data = pygame.surfarray.array3d(pygame.display.get_surface())
-        pygame.display.update()
-        FPSCLOCK.tick(FPS)
+        # image_data = pygame.surfarray.array3d(pygame.display.get_surface())
+        # pygame.display.update()
+        # FPSCLOCK.tick(FPS)
         #print self.upperPipes[0]['y'] + PIPE_HEIGHT - int(BASEY * 0.2)
-        return image_data, reward, terminal
+        return 0, reward, terminal
 
 def getRandomPipe():
     """returns a randomly generated pipe"""

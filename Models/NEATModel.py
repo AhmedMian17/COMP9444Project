@@ -6,7 +6,6 @@ from game import flappyBirdNoGraphics as GameNoGraphics
 from game import wrapped_flappy_bird as Game
 from utils import get_input_layer
 
-
 class NEATModel:
     def __init__(self):
         configFile = os.path.join(os.path.dirname(__file__), 'NEATConfig')

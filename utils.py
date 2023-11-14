@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 def get_gamestate_info(game_state):
     """
@@ -67,10 +68,22 @@ def get_gamestate_info(game_state):
 
 def get_input_layer(game_state):
     """
-    gets gamestate but returns it as a tensor. Use when feeding into ML algorithm
+    gets gamestate but returns it as a np array. Use when feeding into ML algorithm
     Arguments: game_state
-    Returns: tensor of shape (6, 1) containing same information as get_gamestate_info, but without the dictionary.
+    Returns: tensor of shape (7, 1) containing same information as get_gamestate_info, but without the dictionary.
     """
-    return torch.tensor([game_state.lowerPipes[0]['x'], game_state.lowerPipes[0]['y'], 
+    # print("pipe height: ", game_state.lowerPipes[0]['y'])
+    return np.array([game_state.lowerPipes[0]['x'], game_state.lowerPipes[0]['y'], 
                          game_state.lowerPipes[1]['x'], game_state.lowerPipes[1]['y'], 
                         game_state.playery, game_state.playerVelY, game_state.playerFlapped])
+
+def get_input_layer_2(game_state):
+    """
+    gets gamestate but returns it as a np array. Use when feeding into ML algorithm
+    Arguments: game_state
+    Returns: tensor of shape (7, 1) containing same information as get_gamestate_info, but without the dictionary.
+    """
+    # print("pipe height: ", game_state.lowerPipes[0]['y'])
+    return np.array([game_state.lowerPipes[0]['x'], game_state.lowerPipes[0]['y'], game_state.lowerPipes[0]['y'] - 100,
+                         game_state.lowerPipes[1]['x'], game_state.lowerPipes[1]['y'], game_state.lowerPipes[0]['y'] - 100,
+                        game_state.playery])
