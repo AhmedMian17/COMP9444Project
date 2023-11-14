@@ -222,7 +222,7 @@ import matplotlib.pyplot as plt
 import Models.DQL.human_training as Trainer
 
 
-def test():
+def train():
 
     agent = Agent()
     scores, median_scores, eps_history = [], [], []
